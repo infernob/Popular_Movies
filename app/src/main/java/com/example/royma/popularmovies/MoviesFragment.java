@@ -1,8 +1,10 @@
 package com.example.royma.popularmovies;
 
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -60,14 +62,14 @@ public class MoviesFragment extends Fragment {
         return rootView;
     }
 
-    // TODO: Uncomment once preferences settings have been added
+    // Populates or refreshes the view of movie posters
     private void updateMovies(){
         FetchMovieTask movieTask = new FetchMovieTask();
         // Retrieve user preferred sort. Use default if none found
-//        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getContext());
-//        String locationPref = sharedPref.getString(getString(R.string.pref_location_key),
-//                getString(R.string.pref_location_default));
-        movieTask.execute();
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getContext());
+        String sortPref = sharedPref.getString(getString(R.string.pref_sortBy_key),
+                getString(R.string.pref_sortBy_default));
+        movieTask.execute(sortPref);
 
     }
 
@@ -78,7 +80,7 @@ public class MoviesFragment extends Fragment {
     }
 
 
-    public class FetchMovieTask extends AsyncTask <Void, Void, String[]>{
+    public class FetchMovieTask extends AsyncTask <String, Void, String[]>{
 
         private final String LOG_TAG = FetchMovieTask.class.getSimpleName();
 
@@ -99,7 +101,6 @@ public class MoviesFragment extends Fragment {
 
             String[] resultStrs = new String[movieArray.length() + 1];
             for(int i = 0; i < movieArray.length(); i++) {
-                // For now, using the format "Day, description, hi/low"
                 String title;
                 String synopsis;
                 String poster_path;
@@ -125,7 +126,7 @@ public class MoviesFragment extends Fragment {
         }
 
         @Override
-        protected String[] doInBackground(Void... params) {
+        protected String[] doInBackground(String... sortBy) {
             /*
             NETWORK CALLS TO TheMovieDatabase API
             */
@@ -138,33 +139,27 @@ public class MoviesFragment extends Fragment {
             // Will contain the raw JSON response as a string.
             String movieJsonStr = null;
 
-//            SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getContext());
-//            String tempUnitPref = sharedPref.getString(getString(R.string.pref_tempUnit_key),
-//                    getString(R.string.pref_tempUnit_default));
-            // TODO: initialise "sortBy" using shared preference once created
-            String sortBy = "popularity.desc";
-
             try {
                 // Construct the URL for the MovieDatabase query
                 // Possible parameters are available at MDB's API page, at
                 // http://docs.themoviedb.apiary.io/#
                 final String MOVIES_BASE_URL =
-                        "https://api.themoviedb.org/3/discover/movie?";
-                final String SORT_PARAM = "sort_by";
+                        "https://api.themoviedb.org/3/movie";
                 final String APIKEY_PARAM = "api_key";
 
                 Uri builtUri = Uri.parse(MOVIES_BASE_URL).buildUpon()
-                        .appendQueryParameter(SORT_PARAM, sortBy)
+                        .appendPath(sortBy[0])
                         .appendQueryParameter(APIKEY_PARAM, BuildConfig.MOVIE_DATABASE_API_KEY)
                         .build();
 
-                // Built URL for Open Weather Map query
-                URL weatherURL= new URL(builtUri.toString());
+                // Built URL for Movie Database query
+                URL moviesURL= new URL(builtUri.toString());
 
-                Log.v(LOG_TAG, String.valueOf(weatherURL));
+                // Verbose log of created URL
+                Log.v(LOG_TAG, String.valueOf(moviesURL));
 
                 // Create the request to OpenWeatherMap, and open the connection
-                urlConnection = (HttpURLConnection) weatherURL.openConnection();
+                urlConnection = (HttpURLConnection) moviesURL.openConnection();
                 urlConnection.setRequestMethod("GET");
                 urlConnection.connect();
 

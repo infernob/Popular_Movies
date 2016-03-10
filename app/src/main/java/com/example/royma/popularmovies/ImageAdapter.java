@@ -12,7 +12,7 @@ import com.squareup.picasso.Picasso;
 import java.util.ArrayList;
 
 /**
- * Created by Royma on 21/02/2016.
+ * Created by Roy on 21/02/2016.
  */
 public class ImageAdapter extends ArrayAdapter{
     Context context;
