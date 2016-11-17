@@ -1,20 +1,19 @@
 package com.example.royma.popularmovies;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.GridView;
+import android.widget.ImageView;
+import android.widget.TextView;
 
-import org.json.JSONArray;
+import com.squareup.picasso.Picasso;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -24,111 +23,85 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
 
 /**
- * A placeholder fragment containing a simple view.
+ * Fragment containing more detailed information about a selected movie.
  */
-public class MoviesFragment extends Fragment {
-    // Adapter must be initialised outside of methods
-    ImageAdapter mMoviesAdapter;
+public class DetailsActivityFragment extends Fragment {
 
-    public MoviesFragment() {
+    private static final String LOG_TAG = DetailsActivityFragment.class.getSimpleName();
+    private String mMovieId;
+
+    public DetailsActivityFragment() {
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // ArrayAdapter takes data from a source and creates a view that represents
-        // each data entry (populates gridView)
-        mMoviesAdapter = new ImageAdapter(
-                getActivity(),  // Context (fragment's parent activity)
-                R.layout.grid_item_movie,    // ID of grid item layout
-                new ArrayList<Movie>());
+        // Receives intent sent from main Movies Activity. Includes movieID.
+        Intent intent = getActivity().getIntent();
 
-        View rootView = inflater.inflate(R.layout.fragment_movies, container, false);
+        if (intent != null && intent.hasExtra(Intent.EXTRA_TEXT)) {
+            mMovieId = intent.getStringExtra(Intent.EXTRA_TEXT);
+        }
 
-        GridView gridView = (GridView) rootView.findViewById(R.id.movies_gridView);
-        gridView.setAdapter(mMoviesAdapter);
-        gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                // Retrieves movie ID from object at current within adapter
-                String movieId = ((Movie)mMoviesAdapter.getItem(position)).getId();
-                // Launches Detail activity with selected movie's ID passed as an extra
-                Intent detailIntent = new Intent(getContext(), DetailsActivity.class);
-                detailIntent.putExtra(Intent.EXTRA_TEXT, movieId);
-                startActivity(detailIntent);
-            }
-        });
-
-        return rootView;
+        return inflater.inflate(R.layout.fragment_details, container, false);
     }
 
-    // Populates or refreshes the view of movie posters
-    private void updateMovies(){
+    private void updateDetails(){
         FetchMovieTask movieTask = new FetchMovieTask();
-        // Retrieve user preferred sort. Use default if none found
-        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getContext());
-        String sortPref = sharedPref.getString(getString(R.string.pref_sortBy_key),
-                getString(R.string.pref_sortBy_default));
-        movieTask.execute(sortPref);
-
+        movieTask.execute(mMovieId);
     }
 
     @Override
     public void onStart() {
         super.onStart();
-        updateMovies();
+        updateDetails();
     }
 
-
-    public class FetchMovieTask extends AsyncTask<String, Void, Movie[]> {
+    public class FetchMovieTask extends AsyncTask<String, Void, Movie> {
 
         private final String LOG_TAG = FetchMovieTask.class.getSimpleName();
 
-        private Movie[] getMovieDataFromJson(String movieJsonStr)
+        private Movie getMovieDataFromJson(String movieJsonStr)
                 throws JSONException {
 
             // These are the names of the JSON objects that need to be extracted.
-            final String MDB_RESULTS = "results";
-            final String MDB_ID = "id";
             final String MDB_TITLE = "original_title";
             final String MDB_POSTER = "poster_path";
+            final String MDB_SYNOPSIS = "overview";
+            final String MDB_RATING = "vote_average";
+            final String MDB_DATE = "release_date";
 
-            JSONObject moviesJson = new JSONObject(movieJsonStr);
-            JSONArray movieArray = moviesJson.getJSONArray(MDB_RESULTS);
+            JSONObject movie = new JSONObject(movieJsonStr);
 
+            String title;
+            String poster_path;
+            String synopsis;
+            String rating;
+            String release_date;
 
-            Movie[] resultMovs = new Movie[movieArray.length()];
-            for(int i = 0; i < movieArray.length(); i++) {
+            // Get the JSON object representing an individual movie
+            // JSONObject movie = movieArray.getJSONObject(i);
 
-                String movie_id;
-                String title;
-                String poster_path;
+            // extract title
+            title = movie.getString(MDB_TITLE);
 
-                // Get the JSON object representing an individual movie
-                JSONObject movie = movieArray.getJSONObject(i);
+            // extract poster path
+            poster_path = movie.getString(MDB_POSTER);
 
-                // extract movie ID from object.
-                movie_id = movie.getString(MDB_ID);
+            synopsis = movie.getString(MDB_SYNOPSIS);
 
-                // extract title
-                title = movie.getString(MDB_TITLE);
+            rating = movie.getString(MDB_RATING);
 
-                // extract poster path
-                poster_path = movie.getString(MDB_POSTER);
+            release_date = movie.getString(MDB_DATE);
 
-                resultMovs[i] = new Movie(movie_id, title, poster_path);
-
-            }
-
-            return resultMovs;
+            return new Movie(title, poster_path, synopsis, rating, release_date);
 
         }
 
         @Override
-        protected Movie[] doInBackground(String... sortBy) {
+        protected Movie doInBackground(String... movieId) {
             /*
             NETWORK CALLS TO TheMovieDatabase API
             */
@@ -145,19 +118,19 @@ public class MoviesFragment extends Fragment {
                 // Construct the URL for the MovieDatabase query
                 // Possible parameters are available at MDB's API page, at
                 // http://docs.themoviedb.apiary.io/#
-                final String MOVIES_BASE_URL =
+                final String MOVIE_BASE_URL =
                         "https://api.themoviedb.org/3/movie";
                 final String APIKEY_PARAM = "api_key";
 
-                Uri builtUri = Uri.parse(MOVIES_BASE_URL).buildUpon()
-                        .appendPath(sortBy[0])
+                Uri builtUri = Uri.parse(MOVIE_BASE_URL).buildUpon()
+                        .appendPath(movieId[0])
                         .appendQueryParameter(APIKEY_PARAM, BuildConfig.MOVIE_DATABASE_API_KEY)
                         .build();
 
                 // Built URL for Movie Database query
                 URL moviesURL= new URL(builtUri.toString());
 
-                // Verbose log of created URL
+                // Verbose log of created URL for testing
                 Log.v(LOG_TAG, String.valueOf(moviesURL));
 
                 // Create the request to OpenWeatherMap, and open the connection
@@ -217,14 +190,30 @@ public class MoviesFragment extends Fragment {
         }
 
         @Override
-        protected void onPostExecute(Movie[] result) {
-            if (result != null){
-                mMoviesAdapter.clear();
-                for (Movie movie : result){
-                    // Add complete movie object to adapter
-                    mMoviesAdapter.add(movie);
-                }
-                // New data has returned from server
+        protected void onPostExecute(Movie result) {
+            // For poster path creation
+            final String POSTER_BASE_URL = "http://image.tmdb.org/t/p/";
+            final String SIZE ="w500";
+
+            if (result != null) {
+                // Updates title
+                TextView title = (TextView)getView().findViewById(R.id.details_movieTitle_textView);
+                title.setText(result.getTitle());
+                // Updates release date
+                TextView date = (TextView)getView().findViewById(R.id.details_releaseDate_textView);
+                date.setText(result.getReleaseDate());
+                // Updates user rating
+                TextView rating = (TextView)getView().findViewById(R.id.details_userRating_textView);
+                rating.setText(result.getVoteAverage());
+                // Updates movie synopsis
+                TextView synopsis = (TextView)getView().findViewById(R.id.details_movieSynopsis_textView);
+                synopsis.setText(result.getOverview());
+                // Updates movie poster image
+                Picasso
+                        .with(getContext())
+                        .load(POSTER_BASE_URL + SIZE + result.getPosterPath())
+                        .placeholder(R.drawable.picture_unavailable)
+                        .into((ImageView) getView().findViewById(R.id.details_poster_imageView));
             }
         }
     }

@@ -13,13 +13,14 @@ import java.util.ArrayList;
 
 /**
  * Created by Roy on 21/02/2016.
+ * Used to easily manage and load images within the app
  */
 public class ImageAdapter extends ArrayAdapter{
     Context context;
     int layoutResourceId;
-    ArrayList<String> movieList = new ArrayList<>();
+    ArrayList<Movie> movieList = new ArrayList<>();
 
-    public ImageAdapter(Context context, int layoutResourceId, ArrayList<String> objects) {
+    public ImageAdapter(Context context, int layoutResourceId, ArrayList<Movie> objects) {
         super(context, layoutResourceId, objects);
         this.context = context;
         movieList = objects;
@@ -34,6 +35,9 @@ public class ImageAdapter extends ArrayAdapter{
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
         View rowView = convertView;
+        // For poster path creation
+        final String POSTER_BASE_URL = "http://image.tmdb.org/t/p/";
+        final String SIZE ="w500";
 
         if(rowView == null) {
             LayoutInflater inflater = (LayoutInflater) getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
@@ -42,9 +46,10 @@ public class ImageAdapter extends ArrayAdapter{
 
         Picasso
                 .with(context)
-                .load(String.valueOf(movieList.get(position)))
+                .load(POSTER_BASE_URL + SIZE + movieList.get(position).getPosterPath())
                 .into((ImageView) rowView.findViewById(R.id.grid_item_movie_imageView));
 
         return rowView;
     }
+
 }
